@@ -21,5 +21,5 @@ jobs:
             cd /var/www/telegram-scraper
             git pull origin main
             pip install -r requirements.txt --break-system-packages
-            pm2 restart telegram-scraper || pm2 start loop.py --name telegram-scraper --interpreter python3
+            pm2 reload telegram-scraper --update-env || pm2 start loop.py --name telegram-scraper --interpreter python3
             pm2 save
