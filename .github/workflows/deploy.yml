@@ -1,16 +1,25 @@
-name: CD - Deploy to VPS
+name: 🚀 Deploy to VPS
 
 on:
-  push:
-    branches:
-      - main
+  # Manual trigger with dropdown
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
 jobs:
   version-and-deploy:
-    name: Version Bump & Deploy to VPS
+    name: Bump v${{ github.event.inputs.bump_type }} & Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -18,31 +27,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Determine version bump type
-        id: bump
-        run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "Commit: $COMMIT_MSG"
-
-          if echo "$COMMIT_MSG" | grep -qiE "^(feat|feature)(\(.+\))?!:|BREAKING[- ]CHANGE"; then
-            BUMP_TYPE="major"
-          elif echo "$COMMIT_MSG" | grep -qiE "^(feat|feature)(\(.+\))?:"; then
-            BUMP_TYPE="minor"
-          else
-            BUMP_TYPE="patch"
-          fi
-
-          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
-          echo "Bump type: $BUMP_TYPE"
 
       - name: Bump version
         id: version
         run: |
+          BUMP_TYPE="${{ github.event.inputs.bump_type }}"
           CURRENT=$(cat version.txt | tr -d '[:space:]')
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-          BUMP_TYPE="${{ steps.bump.outputs.bump_type }}"
 
           if [ "$BUMP_TYPE" = "major" ]; then
             MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
@@ -53,19 +44,26 @@ jobs:
           fi
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+
+          # Update version.txt
           echo $NEW_VERSION > version.txt
+
+          # Update package.json version (for PM2 status display)
+          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" package.json
 
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "old_version=$CURRENT" >> $GITHUB_OUTPUT
-          echo "Bumped: $CURRENT → $NEW_VERSION ($BUMP_TYPE)"
+          echo "✅ Bumped: $CURRENT → $NEW_VERSION ($BUMP_TYPE)"
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add version.txt
-          git commit -m "chore: bump version to v${{ steps.version.outputs.new_version }} [skip ci]"
+          git add version.txt package.json
+          git commit -m "release: v${{ steps.version.outputs.new_version }} (${{ github.event.inputs.bump_type }} bump) [skip ci]"
+          git tag "v${{ steps.version.outputs.new_version }}"
           git push
+          git push --tags
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -77,6 +75,12 @@ jobs:
             cd /var/www/telegram-scraper
             git pull origin main
             pip install -r requirements.txt --break-system-packages
-            pm2 reload telegram-scraper --update-env || pm2 start loop.py --name telegram-scraper --interpreter python3
+            pm2 delete telegram-scraper 2>/dev/null || true
+            pm2 start loop.py --name telegram-scraper --interpreter python3
             pm2 save
-            echo "✅ Deployed v${{ steps.version.outputs.new_version }} (was v${{ steps.version.outputs.old_version }})"
+            echo ""
+            echo "=========================================="
+            echo "  ✅ Deployed v${{ steps.version.outputs.new_version }}"
+            echo "  📦 Bump: ${{ github.event.inputs.bump_type }}"
+            echo "  🔄 Was: v${{ steps.version.outputs.old_version }}"
+            echo "=========================================="
