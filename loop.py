@@ -23,9 +23,8 @@ api_hash = os.getenv("TG_API_HASH")
 
 # MULTIPLE CHANNELS
 target_channels = [
-    "@Premium_HubO",
-    "@Premium_Hubo2",
-    "@Premium_Hubo3"
+    "@NadyMods",
+    "@LootDeals193",
 ]
 
 webhook_url = "https://n8n.ssrn.online/webhook-test/faf98eb2-4660-43b3-ba4e-2173921dab8a"
