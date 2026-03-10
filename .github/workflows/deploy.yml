@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   version-and-deploy:
     name: Version Bump & Deploy to VPS
