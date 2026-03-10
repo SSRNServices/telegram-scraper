@@ -23,7 +23,7 @@ api_hash = os.getenv("TG_API_HASH")
 
 # MULTIPLE CHANNELS
 target_channels = [
-    "@NadyMods",
+    
     "@LootDeals193",
 ]
 
