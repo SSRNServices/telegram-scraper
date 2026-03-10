@@ -6,11 +6,64 @@ on:
       - main
 
 jobs:
-  deploy:
-    name: Deploy to VPS via SSH
+  version-and-deploy:
+    name: Version Bump & Deploy to VPS
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version bump type
+        id: bump
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit: $COMMIT_MSG"
+
+          if echo "$COMMIT_MSG" | grep -qiE "^(feat|feature)(\(.+\))?!:|BREAKING[- ]CHANGE"; then
+            BUMP_TYPE="major"
+          elif echo "$COMMIT_MSG" | grep -qiE "^(feat|feature)(\(.+\))?:"; then
+            BUMP_TYPE="minor"
+          else
+            BUMP_TYPE="patch"
+          fi
+
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Bump type: $BUMP_TYPE"
+
+      - name: Bump version
+        id: version
+        run: |
+          CURRENT=$(cat version.txt | tr -d '[:space:]')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          BUMP_TYPE="${{ steps.bump.outputs.bump_type }}"
+
+          if [ "$BUMP_TYPE" = "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$BUMP_TYPE" = "minor" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo $NEW_VERSION > version.txt
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "old_version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Bumped: $CURRENT → $NEW_VERSION ($BUMP_TYPE)"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.txt
+          git commit -m "chore: bump version to v${{ steps.version.outputs.new_version }} [skip ci]"
+          git push
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -23,3 +76,4 @@ jobs:
             pip install -r requirements.txt --break-system-packages
             pm2 reload telegram-scraper --update-env || pm2 start loop.py --name telegram-scraper --interpreter python3
             pm2 save
+            echo "✅ Deployed v${{ steps.version.outputs.new_version }} (was v${{ steps.version.outputs.old_version }})"
