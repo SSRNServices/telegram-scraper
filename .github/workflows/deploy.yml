@@ -75,8 +75,7 @@ jobs:
             cd /var/www/telegram-scraper
             git pull origin main
             pip install -r requirements.txt --break-system-packages
-            pm2 delete telegram-scraper 2>/dev/null || true
-            pm2 start loop.py --name telegram-scraper --interpreter python3
+            pm2 start ecosystem.config.js --update-env
             pm2 save
             echo ""
             echo "=========================================="
