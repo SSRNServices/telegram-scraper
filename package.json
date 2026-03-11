@@ -1,5 +1,5 @@
 {
   "name": "telegram-scraper",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Telegram Deal Scraper - Listens to channels and forwards deal links to n8n webhook"
 }
