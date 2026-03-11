@@ -13,6 +13,7 @@ on:
           - patch
           - minor
           - major
+          - none
 
 permissions:
   contents: write
@@ -39,7 +40,7 @@ jobs:
             MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
           elif [ "$BUMP_TYPE" = "minor" ]; then
             MINOR=$((MINOR + 1)); PATCH=0
-          else
+          elif [ "$BUMP_TYPE" = "patch" ]; then
             PATCH=$((PATCH + 1))
           fi
 
@@ -56,6 +57,7 @@ jobs:
           echo "✅ Bumped: $CURRENT → $NEW_VERSION ($BUMP_TYPE)"
 
       - name: Commit version bump
+        if: github.event.inputs.bump_type != 'none'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
